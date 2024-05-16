@@ -1,35 +1,39 @@
 import streamlit as st
 import google.generativeai as genai
+import requests  # Add requests library for API calls
 
-# Configure the Gemini API key
-genai.configure(api_key="AIzaSyDgNonoLpFLupDqOs2TlCl7aoXs3yHCw1E")
-
-# Load the Gemini model
-model = genai.GenerativeModel("gemini-1.5-flash-latest")
+# ... (Existing code for Gemini API configuration and model loading)
 
 # Create the Streamlit application
-st.title("ภาษาแปล")
+st.title("ภาษาแปลและข้อมูลหุ้น")  # Update title
 
-# Select the target language
-target_language = st.selectbox("เลือกภาษาปลายทาง", ["ไทย", "อังกฤษ", "เกาหลี", "ญี่ปุ่น"])
+# Stock Market Input
+stock_input = st.text_input("ป้อนชื่อหุ้นหรือรหัส (เช่น AAPL, AMZN): ")
 
-# Get the input text to translate
-input_text = st.text_input("ป้อนข้อความที่ต้องการแปล: ")
+# Process User Queries
+if stock_input:
+    # Use NLP to understand the query (omitted for simplicity)
+    # Identify ticker symbol or company name
+    ticker_symbol = stock_input.upper()  # Assuming input is ticker symbol
 
-# Construct the prompt for the Gemini model
-prompt = f"แปลข้อความต่อไปนี้เป็นภาษา {target_language} {input_text}"
+    # Fetch stock market data using the chosen API (replace with your API calls)
+    response = requests.get(f"https://example.com/api/stock/{ticker_symbol}")
+    stock_data = response.json()  # Parse JSON response
 
-# Display the prompt
-st.text(prompt)
+    # Generate Stock Market Responses
+    if stock_data:
+        # Extract relevant data from stock_data
+        current_price = stock_data["current_price"]
+        company_name = stock_data["company_name"]
+        historical_data = stock_data["historical_data"]  # Example data
 
-# Translate the text when the "แปล" button is clicked
-if st.button("แปล"):
-    try:
-        # Generate the translation using the Gemini model
-        response = model.generate_content(prompt)
+        # Display stock information
+        st.text(f"ชื่อบริษัท: {company_name}")
+        st.text(f"ราคาปัจจุบัน: {current_price}")
 
-        # Display the translated text
-        st.text(response.text)
-    except Exception as e:
-        # Handle any exceptions that occur during translation
-        st.text(f"เกิดข้อผิดพลาด: {e}")
+        # Display historical data (example)
+        st.line_chart(historical_data["dates"], historical_data["prices"])
+    else:
+        st.text(f"ไม่พบข้อมูลสำหรับหุ้น {stock_input}")
+
+# ... (Existing code for translation functionality)
