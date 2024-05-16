@@ -2,7 +2,8 @@ import streamlit as st
 import google.generativeai as genai
 
 genai.configure(api_key=AIzaSyDgNonoLpFLupDqOs2TlCl7aoXs3yHCw1E)
-model = genai.GenerativeModel=(“gemini-1.5-flash-latest”)
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
+
 st.title(“แปลภาษา”)
 ch = st.selectbox(“เลือกภาษาปลายทาง”,(“ไทย”,”อังกฤษ”,”เกาหลี”,”ญี่ปุ่น”))
 text_in = st.text_input(“ป้อนข้อความที่ต้องการแปล: “)
