@@ -18,7 +18,8 @@ if stock_input:
 
     # Fetch stock market data using the chosen API (replace with your API calls)
     response = requests.get(f"https://example.com/api/stock/{ticker_symbol}")
-    stock_data = response.json()  # Parse JSON response
+    stock_data = response.json(encoding='utf-8')  # Assuming UTF-8 encoding
+
 
     # Generate Stock Market Responses
     if stock_data:
