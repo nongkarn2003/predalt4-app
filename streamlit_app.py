@@ -1,44 +1,29 @@
 import streamlit as st
 import google.generativeai as genai
-import requests  # Add requests library for API calls
 
-# ... (Existing code for Gemini API configuration and model loading)
+# Configure the Gemini API key (assuming you have one)
 genai.configure(api_key="AIzaSyDgNonoLpFLupDqOs2TlCl7aoXs3yHCw1E")
 
 # Load the Gemini model
 model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 # Create the Streamlit application
-st.title("ภาษาแปลและข้อมูลหุ้น")  # Update title
+st.title("ภาษาแปลและข้อมูลหุ้น")
 
 # Stock Market Input
 stock_input = st.text_input("ป้อนชื่อหุ้นหรือรหัส (เช่น AAPL, AMZN): ")
 
 # Process User Queries
 if stock_input:
-    # Use NLP to understand the query (omitted for simplicity)
-    # Identify ticker symbol or company name
-    ticker_symbol = stock_input.upper()  # Assuming input is ticker symbol
+  # Craft a prompt for the Gemini API based on the user input
+  prompt = f"สรุปข้อมูลเกี่ยวกับ {stock_input} ในช่วงที่ผ่านมา"
 
-    # Fetch stock market data using the chosen API (replace with your API calls)
-    response = requests.get(f"https://example.com/api/stock/{ticker_symbol}")
-    stock_data = response.json(encoding='utf-8')  # Assuming UTF-8 encoding
+  # Generate response using the Gemini model
+  response = model.generate_content(prompt)
 
+  # Display the generated response
+  st.text(response.text)
 
-    # Generate Stock Market Responses
-    if stock_data:
-        # Extract relevant data from stock_data
-        current_price = stock_data["current_price"]
-        company_name = stock_data["company_name"]
-        historical_data = stock_data["historical_data"]  # Example data
+# Existing code for translation functionality (replace "..." with your code)
+# ...
 
-        # Display stock information
-        st.text(f"ชื่อบริษัท: {company_name}")
-        st.text(f"ราคาปัจจุบัน: {current_price}")
-
-        # Display historical data (example)
-        st.line_chart(historical_data["dates"], historical_data["prices"])
-    else:
-        st.text(f"ไม่พบข้อมูลสำหรับหุ้น {stock_input}")
-
-# ... (Existing code for translation functionality)
