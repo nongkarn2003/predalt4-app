@@ -2,3 +2,4 @@ pandas
 yfinance
 prophet
 plotly
+google.generativeai
