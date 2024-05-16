@@ -3,6 +3,10 @@ import google.generativeai as genai
 import requests  # Add requests library for API calls
 
 # ... (Existing code for Gemini API configuration and model loading)
+genai.configure(api_key="AIzaSyDgNonoLpFLupDqOs2TlCl7aoXs3yHCw1E")
+
+# Load the Gemini model
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 # Create the Streamlit application
 st.title("ภาษาแปลและข้อมูลหุ้น")  # Update title
