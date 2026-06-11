@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -7,11 +5,11 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# ==========================================
+# ==================================
 
 # CONFIG
 
-# ==========================================
+# ==================================
 
 st.set_page_config(
 page_title="Portfolio Dashboard",
@@ -21,11 +19,11 @@ layout="wide"
 
 st.title("📈 Portfolio Analytics Dashboard")
 
-# ==========================================
+# ==================================
 
-# SIDEBAR INPUT
+# SIDEBAR
 
-# ==========================================
+# ==================================
 
 st.sidebar.header("Portfolio Builder")
 
@@ -42,30 +40,35 @@ weights = []
 for i in range(num_assets):
 
 ```
-col1, col2 = st.sidebar.columns(2)
+st.sidebar.markdown(f"### Asset {i+1}")
 
-ticker = col1.text_input(
+ticker = st.sidebar.text_input(
     f"Ticker {i+1}",
-    value=""
+    key=f"ticker_{i}"
 )
 
-weight = col2.number_input(
+weight = st.sidebar.number_input(
     f"Weight {i+1}",
     min_value=0.0,
     value=0.0,
-    step=1.0
+    step=1.0,
+    key=f"weight_{i}"
 )
 
 if ticker != "":
-
     tickers.append(
         ticker.upper()
     )
-
     weights.append(weight)
 ```
 
-# ------------------------------------------
+# ==================================
+
+# BENCHMARK
+
+# ==================================
+
+st.sidebar.header("Benchmarks")
 
 num_bench = st.sidebar.number_input(
 "Number of Benchmarks",
@@ -79,19 +82,22 @@ benchmarks = []
 for i in range(num_bench):
 
 ```
-b = st.sidebar.text_input(
+bench = st.sidebar.text_input(
     f"Benchmark {i+1}",
-    value=""
+    key=f"bench_{i}"
 )
 
-if b != "":
-
+if bench != "":
     benchmarks.append(
-        b.upper()
+        bench.upper()
     )
 ```
 
-# ------------------------------------------
+# ==================================
+
+# SETTINGS
+
+# ==================================
 
 start_date = st.sidebar.date_input(
 "Start Date",
@@ -105,51 +111,53 @@ pd.Timestamp.today()
 
 rf = st.sidebar.number_input(
 "Risk Free Rate",
-value=0.04
-)
-
-initial_investment = st.sidebar.number_input(
-"Initial Investment",
-value=100000
+value=0.04,
+step=0.01
 )
 
 run_button = st.sidebar.button(
 "🚀 Run Analysis"
 )
 
-# ==========================================
+# ==================================
 
-# STOP IF NOT RUN
+# STOP
 
-# ==========================================
+# ==================================
 
 if not run_button:
-st.info("Input portfolio and click Run Analysis")
+st.info("Please input portfolio and click Run Analysis")
 st.stop()
 
-# ==========================================
+# ==================================
 
 # VALIDATION
 
-# ==========================================
+# ==================================
 
 if len(tickers) == 0:
-st.error("Please enter tickers")
+
+```
+st.error("Please enter at least one ticker")
 st.stop()
+```
 
 weights = np.array(weights)
 
 if weights.sum() == 0:
-st.error("Weights cannot be zero")
+
+```
+st.error("Weights cannot sum to zero")
 st.stop()
+```
 
 weights = weights / weights.sum()
 
-# ==========================================
+# ==================================
 
 # DOWNLOAD DATA
 
-# ==========================================
+# ==================================
 
 all_tickers = list(
 set(
@@ -157,207 +165,267 @@ tickers + benchmarks
 )
 )
 
-data = yf.download(
-all_tickers,
-start=start_date,
-end=end_date,
-auto_adjust=True,
-progress=False
-)
+with st.spinner("Downloading data..."):
 
+```
+data = yf.download(
+    all_tickers,
+    start=start_date,
+    end=end_date,
+    auto_adjust=True,
+    progress=False
+)
+```
+
+# ==================================
+
+# FIX YFINANCE
+
+# ==================================
+
+try:
 close = data["Close"]
 
-close = close.ffill().dropna(how="all")
+except:
+close = data.xs(
+"Close",
+axis=1,
+level=0
+)
+
+close = close.ffill()
+
+close = close.dropna(
+how="all"
+)
 
 returns = close.pct_change().dropna()
 
-# ==========================================
+# ==================================
 
 # PORTFOLIO RETURN
 
-# ==========================================
+# ==================================
 
 portfolio_returns = (
 returns[tickers] * weights
 ).sum(axis=1)
 
-# ==========================================
+# ==================================
 
 # FUNCTIONS
 
-# ==========================================
+# ==================================
 
-def total_return(series):
-return (1 + series).prod() - 1
-
-def annual_return(series):
-return (
-(1 + total_return(series))
-** (252 / len(series))
-- 1
-)
-
-def annual_vol(series):
-return (
-series.std()
-* np.sqrt(252)
-)
-
-def sharpe(series, rf):
-return (
-annual_return(series) - rf
-) / annual_vol(series)
-
-def max_drawdown(series):
+def annual_return(r):
 
 ```
-cum = (
-    1 + series
+return (
+    (1+r).prod()
+    ** (252/len(r))
+    - 1
+)
+```
+
+def annual_vol(r):
+
+```
+return (
+    r.std()
+    * np.sqrt(252)
+)
+```
+
+def sharpe(r):
+
+```
+vol = annual_vol(r)
+
+if vol == 0:
+    return np.nan
+
+return (
+    annual_return(r)
+    - rf
+) / vol
+```
+
+def max_drawdown(r):
+
+```
+wealth = (
+    1+r
 ).cumprod()
 
-peak = cum.cummax()
+peak = wealth.cummax()
 
 dd = (
-    cum - peak
+    wealth - peak
 ) / peak
 
 return dd.min(), dd
 ```
 
-def var95(series):
-return np.percentile(series, 5)
+def var95(r):
 
-# ==========================================
+```
+return np.percentile(
+    r,
+    5
+)
+```
+
+# ==================================
+
+# PERIOD RETURNS
+
+# ==================================
+
+def period_return(
+r,
+months=None,
+years=None
+):
+
+```
+end = r.index[-1]
+
+if months:
+    start = (
+        end -
+        pd.DateOffset(
+            months=months
+        )
+    )
+
+elif years:
+    start = (
+        end -
+        pd.DateOffset(
+            years=years
+        )
+    )
+
+else:
+    return np.nan
+
+sub = r[
+    r.index >= start
+]
+
+if len(sub) < 2:
+    return np.nan
+
+return (
+    1+sub
+).prod() - 1
+```
+
+# ==================================
 
 # METRICS
 
-# ==========================================
+# ==================================
 
 mdd, dd_series = max_drawdown(
 portfolio_returns
 )
 
-metrics = {
-
-```
-"Return":
-annual_return(
-    portfolio_returns
-),
-
-"Vol":
-annual_vol(
-    portfolio_returns
-),
-
-"Sharpe":
-sharpe(
-    portfolio_returns,
-    rf
-),
-
-"VaR":
-var95(
-    portfolio_returns
-),
-
-"MaxDD":
-mdd
-```
-
-}
-
-# ==========================================
+# ==================================
 
 # KPI
 
-# ==========================================
+# ==================================
 
 c1,c2,c3,c4,c5 = st.columns(5)
 
 c1.metric(
 "Return",
-f"{metrics['Return']:.2%}"
+f"{annual_return(portfolio_returns):.2%}"
 )
 
 c2.metric(
 "Volatility",
-f"{metrics['Vol']:.2%}"
+f"{annual_vol(portfolio_returns):.2%}"
 )
 
 c3.metric(
 "Sharpe",
-f"{metrics['Sharpe']:.2f}"
+f"{sharpe(portfolio_returns):.2f}"
 )
 
 c4.metric(
 "VaR",
-f"{metrics['VaR']:.2%}"
+f"{var95(portfolio_returns):.2%}"
 )
 
 c5.metric(
-"MaxDD",
-f"{metrics['MaxDD']:.2%}"
+"Max Drawdown",
+f"{mdd:.2%}"
 )
 
-# ==========================================
+# ==================================
 
-# PORTFOLIO VS BENCHMARK
+# RETURNS TABLE
 
-# ==========================================
+# ==================================
 
-st.subheader(
-"Portfolio vs Benchmark"
-)
+st.subheader("Portfolio Returns")
 
-fig = go.Figure()
-
-portfolio_curve = (
-1 + portfolio_returns
-).cumprod()
-
-fig.add_trace(
+returns_df = pd.DataFrame({
 
 ```
-go.Scatter(
-    x=portfolio_curve.index,
-    y=portfolio_curve,
-    name="Portfolio"
-)
-```
+"Period":[
+    "1M",
+    "6M",
+    "1Y",
+    "5Y",
+    "10Y"
+],
 
-)
+"Return":[
 
-for bench in benchmarks:
+    period_return(
+        portfolio_returns,
+        months=1
+    ),
 
-```
-if bench in returns.columns:
+    period_return(
+        portfolio_returns,
+        months=6
+    ),
 
-    bench_curve = (
-        1 + returns[bench]
-    ).cumprod()
+    period_return(
+        portfolio_returns,
+        years=1
+    ),
 
-    fig.add_trace(
+    period_return(
+        portfolio_returns,
+        years=5
+    ),
 
-        go.Scatter(
-            x=bench_curve.index,
-            y=bench_curve,
-            name=bench
-        )
-
+    period_return(
+        portfolio_returns,
+        years=10
     )
+
+]
 ```
 
-st.plotly_chart(
-fig,
-use_container_width=True
+})
+
+st.dataframe(
+returns_df.style.format({
+"Return":"{:.2%}"
+})
 )
 
-# ==========================================
+# ==================================
 
 # CORRELATION
 
-# ==========================================
+# ==================================
 
 st.subheader(
 "Correlation Matrix"
@@ -383,11 +451,44 @@ fig_corr,
 use_container_width=True
 )
 
-# ==========================================
+# ==================================
+
+# EQUITY CURVE
+
+# ==================================
+
+st.subheader(
+"Portfolio Growth"
+)
+
+curve = (
+1+portfolio_returns
+).cumprod()
+
+fig = go.Figure()
+
+fig.add_trace(
+
+```
+go.Scatter(
+    x=curve.index,
+    y=curve,
+    name="Portfolio"
+)
+```
+
+)
+
+st.plotly_chart(
+fig,
+use_container_width=True
+)
+
+# ==================================
 
 # DRAWDOWN
 
-# ==========================================
+# ==================================
 
 st.subheader(
 "Drawdown"
