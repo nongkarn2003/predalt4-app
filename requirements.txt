@@ -4,3 +4,4 @@ prophet
 plotly
 google.generativeai
 requests
+numpy
