@@ -1,29 +1,20 @@
 import streamlit as st
-import google.generativeai as genai
 
-# Configure the Gemini API key (assuming you have one)
-genai.configure(api_key="AIzaSyDgNonoLpFLupDqOs2TlCl7aoXs3yHCw1E")
+st.set_page_config(
+    page_title="Portfolio Dashboard",
+    page_icon="📈",
+    layout="wide"
+)
 
-# Load the Gemini model
-model = genai.GenerativeModel("gemini-1.5-flash-latest")
+st.title("📈 Portfolio Management Dashboard")
 
-# Create the Streamlit application
-st.title("ภาษาแปลและข้อมูลหุ้น")
+st.markdown("""
+Welcome to your Portfolio Dashboard
 
-# Stock Market Input
-stock_input = st.text_input("ป้อนชื่อหุ้นหรือรหัส (เช่น AAPL, AMZN): ")
+Use the menu on the left:
 
-# Process User Queries
-if stock_input:
-  # Craft a prompt for the Gemini API based on the user input
-  prompt = f"สรุปข้อมูลเกี่ยวกับ {stock_input} ในช่วงที่ผ่านมา"
-
-  # Generate response using the Gemini model
-  response = model.generate_content(prompt)
-
-  # Display the generated response
-  st.text(response.text)
-
-# Existing code for translation functionality (replace "..." with your code)
-# ...
-
+- Portfolio Analytics
+- Efficient Frontier
+- Rebalancing
+- Correlation Analysis
+""")
