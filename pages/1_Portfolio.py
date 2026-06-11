@@ -2,162 +2,143 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-
-# ==================================
-
-# CONFIG
-
-# ==================================
 
 st.set_page_config(
-page_title="Portfolio Dashboard",
-page_icon="📈",
+page_title="Portfolio Analytics Dashboard",
 layout="wide"
 )
 
 st.title("📈 Portfolio Analytics Dashboard")
 
-# ==================================
+# ==================================================
 
-# SIDEBAR
+# PORTFOLIO BUILDER
 
-# ==================================
+# ==================================================
 
-st.sidebar.header("Portfolio Builder")
+st.header("Portfolio Builder")
 
-num_assets = st.sidebar.number_input(
-"Number of Assets",
-min_value=1,
-max_value=20,
-value=5
+portfolio_df = st.data_editor(
+pd.DataFrame({
+"Ticker": [
+"VT",
+"JQUA",
+"IMOM",
+"GLDM",
+"BOND"
+],
+"Weight": [
+25,
+25,
+25,
+15,
+10
+]
+}),
+num_rows="dynamic",
+use_container_width=True
 )
 
-tickers = []
-weights = []
+# ==================================================
 
-for i in range(num_assets):
+# BENCHMARK BUILDER
 
-```
-st.sidebar.markdown(f"### Asset {i+1}")
+# ==================================================
 
-ticker = st.sidebar.text_input(
-    f"Ticker {i+1}",
-    key=f"ticker_{i}"
+st.header("Benchmarks")
+
+benchmark_df = st.data_editor(
+pd.DataFrame({
+"Benchmark": [
+"ACWI",
+"SPY"
+]
+}),
+num_rows="dynamic",
+use_container_width=True
 )
 
-weight = st.sidebar.number_input(
-    f"Weight {i+1}",
-    min_value=0.0,
-    value=0.0,
-    step=1.0,
-    key=f"weight_{i}"
-)
-
-if ticker != "":
-    tickers.append(
-        ticker.upper()
-    )
-    weights.append(weight)
-```
-
-# ==================================
-
-# BENCHMARK
-
-# ==================================
-
-st.sidebar.header("Benchmarks")
-
-num_bench = st.sidebar.number_input(
-"Number of Benchmarks",
-min_value=1,
-max_value=10,
-value=3
-)
-
-benchmarks = []
-
-for i in range(num_bench):
-
-```
-bench = st.sidebar.text_input(
-    f"Benchmark {i+1}",
-    key=f"bench_{i}"
-)
-
-if bench != "":
-    benchmarks.append(
-        bench.upper()
-    )
-```
-
-# ==================================
+# ==================================================
 
 # SETTINGS
 
-# ==================================
+# ==================================================
 
-start_date = st.sidebar.date_input(
-"Start Date",
-pd.to_datetime("2020-01-01")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+
+```
+start_date = st.date_input(
+    "Start Date",
+    pd.to_datetime("2020-01-01")
+)
+```
+
+with col2:
+
+```
+end_date = st.date_input(
+    "End Date",
+    pd.Timestamp.today()
+)
+```
+
+with col3:
+
+```
+rf = st.number_input(
+    "Risk Free Rate",
+    value=0.04,
+    step=0.01
+)
+```
+
+# ==================================================
+
+# RUN
+
+# ==================================================
+
+run = st.button(
+"🚀 Run Analysis",
+use_container_width=True
 )
 
-end_date = st.sidebar.date_input(
-"End Date",
-pd.Timestamp.today()
-)
-
-rf = st.sidebar.number_input(
-"Risk Free Rate",
-value=0.04,
-step=0.01
-)
-
-run_button = st.sidebar.button(
-"🚀 Run Analysis"
-)
-
-# ==================================
+# ==================================================
 
 # STOP
 
-# ==================================
+# ==================================================
 
-if not run_button:
-st.info("Please input portfolio and click Run Analysis")
+if not run:
 st.stop()
 
-# ==================================
+# ==================================================
 
-# VALIDATION
+# INPUT
 
-# ==================================
+# ==================================================
 
-if len(tickers) == 0:
+portfolio_df = portfolio_df.dropna()
 
-```
-st.error("Please enter at least one ticker")
-st.stop()
-```
+tickers = portfolio_df["Ticker"].tolist()
 
-weights = np.array(weights)
-
-if weights.sum() == 0:
-
-```
-st.error("Weights cannot sum to zero")
-st.stop()
-```
+weights = np.array(
+portfolio_df["Weight"]
+)
 
 weights = weights / weights.sum()
 
-# ==================================
+benchmarks = benchmark_df[
+"Benchmark"
+].dropna().tolist()
 
-# DOWNLOAD DATA
+# ==================================================
 
-# ==================================
+# DOWNLOAD
+
+# ==================================================
 
 all_tickers = list(
 set(
@@ -165,57 +146,49 @@ tickers + benchmarks
 )
 )
 
-with st.spinner("Downloading data..."):
-
-```
 data = yf.download(
-    all_tickers,
-    start=start_date,
-    end=end_date,
-    auto_adjust=True,
-    progress=False
+all_tickers,
+start=start_date,
+end=end_date,
+auto_adjust=True,
+progress=False
 )
-```
-
-# ==================================
-
-# FIX YFINANCE
-
-# ==================================
 
 try:
-close = data["Close"]
+
+```
+prices = data["Close"]
+```
 
 except:
-close = data.xs(
-"Close",
-axis=1,
-level=0
+
+```
+prices = data.xs(
+    "Close",
+    axis=1,
+    level=0
 )
+```
 
-close = close.ffill()
+prices = prices.ffill().dropna()
 
-close = close.dropna(
-how="all"
-)
+returns = prices.pct_change().dropna()
 
-returns = close.pct_change().dropna()
-
-# ==================================
+# ==================================================
 
 # PORTFOLIO RETURN
 
-# ==================================
+# ==================================================
 
 portfolio_returns = (
 returns[tickers] * weights
 ).sum(axis=1)
 
-# ==================================
+# ==================================================
 
 # FUNCTIONS
 
-# ==================================
+# ==================================================
 
 def annual_return(r):
 
@@ -239,15 +212,9 @@ return (
 def sharpe(r):
 
 ```
-vol = annual_vol(r)
-
-if vol == 0:
-    return np.nan
-
 return (
-    annual_return(r)
-    - rf
-) / vol
+    annual_return(r)-rf
+) / annual_vol(r)
 ```
 
 def max_drawdown(r):
@@ -260,84 +227,21 @@ wealth = (
 peak = wealth.cummax()
 
 dd = (
-    wealth - peak
+    wealth-peak
 ) / peak
 
-return dd.min(), dd
+return dd.min()
 ```
 
-def var95(r):
-
-```
-return np.percentile(
-    r,
-    5
-)
-```
-
-# ==================================
-
-# PERIOD RETURNS
-
-# ==================================
-
-def period_return(
-r,
-months=None,
-years=None
-):
-
-```
-end = r.index[-1]
-
-if months:
-    start = (
-        end -
-        pd.DateOffset(
-            months=months
-        )
-    )
-
-elif years:
-    start = (
-        end -
-        pd.DateOffset(
-            years=years
-        )
-    )
-
-else:
-    return np.nan
-
-sub = r[
-    r.index >= start
-]
-
-if len(sub) < 2:
-    return np.nan
-
-return (
-    1+sub
-).prod() - 1
-```
-
-# ==================================
-
-# METRICS
-
-# ==================================
-
-mdd, dd_series = max_drawdown(
-portfolio_returns
-)
-
-# ==================================
+# ==================================================
 
 # KPI
 
-# ==================================
+# ==================================================
 
-c1,c2,c3,c4,c5 = st.columns(5)
+st.header("Portfolio Metrics")
+
+c1,c2,c3,c4 = st.columns(4)
 
 c1.metric(
 "Return",
@@ -355,81 +259,17 @@ f"{sharpe(portfolio_returns):.2f}"
 )
 
 c4.metric(
-"VaR",
-f"{var95(portfolio_returns):.2%}"
-)
-
-c5.metric(
 "Max Drawdown",
-f"{mdd:.2%}"
+f"{max_drawdown(portfolio_returns):.2%}"
 )
 
-# ==================================
-
-# RETURNS TABLE
-
-# ==================================
-
-st.subheader("Portfolio Returns")
-
-returns_df = pd.DataFrame({
-
-```
-"Period":[
-    "1M",
-    "6M",
-    "1Y",
-    "5Y",
-    "10Y"
-],
-
-"Return":[
-
-    period_return(
-        portfolio_returns,
-        months=1
-    ),
-
-    period_return(
-        portfolio_returns,
-        months=6
-    ),
-
-    period_return(
-        portfolio_returns,
-        years=1
-    ),
-
-    period_return(
-        portfolio_returns,
-        years=5
-    ),
-
-    period_return(
-        portfolio_returns,
-        years=10
-    )
-
-]
-```
-
-})
-
-st.dataframe(
-returns_df.style.format({
-"Return":"{:.2%}"
-})
-)
-
-# ==================================
+# ==================================================
 
 # CORRELATION
 
-# ==================================
+# ==================================================
 
-st.subheader(
-"Correlation Matrix"
-)
+st.header("Correlation")
 
 corr = (
 returns[tickers]
@@ -437,78 +277,74 @@ returns[tickers]
 )
 
 st.dataframe(
-corr.round(2)
-)
-
-fig_corr = px.imshow(
-corr,
-text_auto=".2f",
-color_continuous_scale="RdBu"
-)
-
-st.plotly_chart(
-fig_corr,
+corr.round(2),
 use_container_width=True
 )
 
-# ==================================
+# ==================================================
 
-# EQUITY CURVE
+# RETURNS
 
-# ==================================
+# ==================================================
 
-st.subheader(
-"Portfolio Growth"
-)
+st.header("Portfolio Return Series")
 
-curve = (
+equity_curve = (
 1+portfolio_returns
 ).cumprod()
 
-fig = go.Figure()
+st.line_chart(
+equity_curve
+)
 
-fig.add_trace(
+# ==================================================
+
+# BENCHMARK COMPARISON
+
+# ==================================================
+
+st.header("Benchmark Comparison")
+
+comparison = pd.DataFrame()
+
+comparison["Portfolio"] = (
+1+portfolio_returns
+).cumprod()
+
+for bench in benchmarks:
 
 ```
-go.Scatter(
-    x=curve.index,
-    y=curve,
-    name="Portfolio"
-)
+if bench in returns.columns:
+
+    comparison[bench] = (
+        1+returns[bench]
+    ).cumprod()
 ```
 
+st.line_chart(
+comparison
 )
 
-st.plotly_chart(
-fig,
-use_container_width=True
-)
+# ==================================================
 
-# ==================================
+# RAW DATA
 
-# DRAWDOWN
+# ==================================================
 
-# ==================================
+st.header("Portfolio Holdings")
 
-st.subheader(
-"Drawdown"
-)
-
-fig_dd = go.Figure()
-
-fig_dd.add_trace(
+holding_report = pd.DataFrame({
 
 ```
-go.Scatter(
-    x=dd_series.index,
-    y=dd_series,
-    name="Drawdown"
-)
+"Ticker": tickers,
+
+"Weight %":
+weights*100
 ```
 
-)
+})
 
-st.plotly_chart(
-fig_dd,
+st.dataframe(
+holding_report.round(2),
 use_container_width=True
 )
